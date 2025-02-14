@@ -1,7 +1,6 @@
 # 🚀 Azure VM Provisioning Toolkit
 
-**Automate Azure Virtual Machine Deployments with Terraform & Bash**\
-*Infrastructure as Code meets Web Elegance*
+**Automate Azure Virtual Machine Deployments with Terraform & Bash**
 
 
 
