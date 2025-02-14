@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevOps Portfolio</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <nav>
+        <ul>
+            <li><a href="#home">Home</a></li>
+            <li><a href="#projects">Projects</a></li>
+            <li><a href="#contact">Contact</a></li>
+        </ul>
+    </nav>
+
+    <section class="hero" id="home">
+        <div class="container">
+            <h1>John DevOps</h1>
+            <p>Cloud Architect & DevOps Engineer</p>
+        </div>
+    </section>
+
+    <section id="projects" class="container">
+        <h2>GitHub Projects</h2>
+        <div class="projects-grid" id="projects-container"></div>
+    </section>
+
+    <section id="contact" class="container">
+        <h2>Contact Me</h2>
+        <form class="contact-form" id="contactForm">
+            <input type="text" placeholder="Name" required>
+            <input type="email" placeholder="Email" required>
+            <textarea placeholder="Message" rows="5" required></textarea>
+            <button type="submit">Send Message</button>
+        </form>
+        <div class="socials">
+            <a href="https://github.com/YOUR_GITHUB_USERNAME" target="_blank"><i class="fab fa-github"></i></a>
+            <a href="https://linkedin.com/in/YOUR_LINKEDIN_USERNAME" target="_blank"><i class="fab fa-linkedin"></i></a>
+            <a href="https://twitter.com/YOUR_TWITTER_USERNAME" target="_blank"><i class="fab fa-twitter"></i></a>
+        </div>
+    </section>
+
+    <script src="script.js"></script>
+</body>
+</html>
