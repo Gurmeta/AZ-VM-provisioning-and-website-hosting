@@ -1,4 +1,7 @@
+# Ignoring variables with sensitive information
 variables.json
 variables.tf
+
+# Some .tfstate atributes containing personal info and sensitive info.
 terraform.tfstate
 terraform.tfstate.backup
