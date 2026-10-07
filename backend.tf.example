@@ -1,0 +1,18 @@
+# Optional: remote state in Azure Storage (recommended for teams / CI).
+# Copy to backend.tf (git-ignored), fill in your values, then run `terraform init -migrate-state`.
+#
+# One-time bootstrap (outside this configuration):
+#   az group create -n tfstate-rg -l westeurope
+#   az storage account create -n <globally-unique-name> -g tfstate-rg --sku Standard_LRS \
+#       --min-tls-version TLS1_2 --allow-blob-public-access false
+#   az storage container create -n tfstate --account-name <globally-unique-name> --auth-mode login
+
+terraform {
+  backend "azurerm" {
+    resource_group_name  = "tfstate-rg"
+    storage_account_name = "<globally-unique-name>"
+    container_name       = "tfstate"
+    key                  = "az-vm-provisioning.tfstate"
+    use_azuread_auth     = true
+  }
+}

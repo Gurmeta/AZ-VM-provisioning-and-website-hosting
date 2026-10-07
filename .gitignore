@@ -1,10 +1,36 @@
-# Ignoring variables with sensitive information
+# Terraform working directory and local state (state can contain secrets)
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfplan
+tfplan
+
+# Variable files holding environment-specific or sensitive values.
+# Copy terraform.tfvars.example to terraform.tfvars and edit it.
+*.tfvars
+*.tfvars.json
 variables.json
-variables.tf
+!terraform.tfvars.example
 
-# Some .tfstate atributes containing personal info and sensitive info.
-terraform.tfstate
-terraform.tfstate.backup
+# Local overrides and backend config with real values
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+backend.tf
 
+# Keep the provider lock file committed: do NOT ignore .terraform.lock.hcl
 
-# Note : You'll have to ceate your own variables based on your subscribtion,resources and needs.
+# Editor / OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Secrets
+*.pem
+*.key
+id_rsa*
+.env

@@ -1,43 +1,69 @@
 resource "azurerm_virtual_network" "vnet" {
-  name                = "myVNet"
+  name                = "${var.name}-vnet"
   address_space       = var.address_space
   location            = var.location
   resource_group_name = var.resource_group_name
+  tags                = var.tags
 }
 
-# Subnet for VM
-resource "azurerm_subnet" "subnet" {
-  name                 = "mySubnet"
+# --- Subnets ----------------------------------------------------------------
+
+resource "azurerm_subnet" "vm" {
+  name                 = "${var.name}-vm-subnet"
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = var.subnet_prefix
+  address_prefixes     = var.vm_subnet_prefix
 }
-# Subnet for AKS
-resource "azurerm_subnet" "aks_subnet" {
-  name                 = "aks-subnet"
+
+resource "azurerm_subnet" "aks" {
+  name                 = "${var.name}-aks-subnet"
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = ["10.0.2.0/24"]
+  address_prefixes     = var.aks_subnet_prefix
+}
+
+# Application Gateway requires its own subnet, and must NOT share the AKS node
+# subnet. It also has mandatory NSG rules (GatewayManager 65200-65535), so no NSG
+# is attached here.
+resource "azurerm_subnet" "appgw" {
+  count = var.enable_appgw_subnet ? 1 : 0
+
+  name                 = "${var.name}-appgw-subnet"
+  resource_group_name  = var.resource_group_name
+  virtual_network_name = azurerm_virtual_network.vnet.name
+  address_prefixes     = var.appgw_subnet_prefix
+}
+
+# --- VM networking ----------------------------------------------------------
+
+resource "azurerm_public_ip" "vm" {
+  name                = "${var.name}-vm-pip"
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  allocation_method   = "Static"
+  sku                 = "Standard" # Basic SKU is being retired
+  tags                = var.tags
 }
 
 resource "azurerm_network_interface" "nic" {
-  name                = "GBS-devgroup-nic"
+  name                = "${var.name}-vm-nic"
   location            = var.location
   resource_group_name = var.resource_group_name
+  tags                = var.tags
 
   ip_configuration {
     name                          = "internal"
-    subnet_id                     = azurerm_subnet.subnet.id
+    subnet_id                     = azurerm_subnet.vm.id
     private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.vm_public_ip.id 
+    public_ip_address_id          = azurerm_public_ip.vm.id
   }
 }
 
-# NSG for VM
-resource "azurerm_network_security_group" "nsg" {
-  name                = "myNSG"
+resource "azurerm_network_security_group" "vm" {
+  name                = "${var.name}-vm-nsg"
   location            = var.location
   resource_group_name = var.resource_group_name
+  tags                = var.tags
 
   security_rule {
     name                       = "AllowSSH"
@@ -47,13 +73,13 @@ resource "azurerm_network_security_group" "nsg" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "22"
-    source_address_prefix      = "*"
+    source_address_prefixes    = var.allowed_ssh_cidrs
     destination_address_prefix = "*"
   }
 
   security_rule {
     name                       = "AllowHTTP"
-    priority                   = 1007
+    priority                   = 1010
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
@@ -65,7 +91,7 @@ resource "azurerm_network_security_group" "nsg" {
 
   security_rule {
     name                       = "AllowHTTPS"
-    priority                   = 1008
+    priority                   = 1020
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
@@ -75,103 +101,41 @@ resource "azurerm_network_security_group" "nsg" {
     destination_address_prefix = "*"
   }
 
-  security_rule {
-    name                       = "AllowAllOutbound"
-    priority                   = 4096
-    direction                  = "Outbound"
-    access                     = "Allow"
-    protocol                   = "*"
-    source_port_range          = "*"
-    destination_port_range     = "*"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
+  # Outbound traffic is allowed by the default NSG rules.
 }
 
-# NSG for AKS
-resource "azurerm_network_security_group" "aks_nsg" {
-  name                = "aks-nsg"
+# The NSG only takes effect once it is attached.
+resource "azurerm_network_interface_security_group_association" "vm" {
+  network_interface_id      = azurerm_network_interface.nic.id
+  network_security_group_id = azurerm_network_security_group.vm.id
+}
+
+# --- AKS networking ---------------------------------------------------------
+
+resource "azurerm_network_security_group" "aks" {
+  name                = "${var.name}-aks-nsg"
   location            = var.location
   resource_group_name = var.resource_group_name
+  tags                = var.tags
 
-  security_rule {
-    name                       = "Allow-HTTP"
-    priority                   = 1001
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "80"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
+  dynamic "security_rule" {
+    for_each = { for idx, port in var.aks_allowed_inbound_ports : tostring(port) => idx }
 
-  security_rule {
-    name                       = "Allow-HTTPS"
-    priority                   = 1002
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "443"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
-
-  security_rule {
-    name                       = "Allow-All-Outbound"
-    priority                   = 2000
-    direction                  = "Outbound"
-    access                     = "Allow"
-    protocol                   = "*"
-    source_port_range          = "*"
-    destination_port_range     = "*"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
-  security_rule {
-    name                       = "Allow-Grafana"
-    priority                   = 1017
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "3000"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
-
-}
-resource "azurerm_public_ip" "vm_public_ip" {
-  name                = "GBS-devgroup-public-ip"
-  resource_group_name = var.resource_group_name
-  location            = var.location
-  allocation_method   = "Static"
-
-  tags = {
-    environment = "Production"
+    content {
+      name                       = "Allow-TCP-${security_rule.key}"
+      priority                   = 1000 + security_rule.value * 10
+      direction                  = "Inbound"
+      access                     = "Allow"
+      protocol                   = "Tcp"
+      source_port_range          = "*"
+      destination_port_range     = security_rule.key
+      source_address_prefix      = "*"
+      destination_address_prefix = "*"
+    }
   }
 }
-resource "azurerm_public_ip" "aks_public_ip" {
-  name                = "aks-public-ip"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  allocation_method   = "Static"
-  sku                 = "Standard"
-}
 
-# Connecting AKS Subnet with it's NSG
-resource "azurerm_subnet_network_security_group_association" "aks_subnet_nsg" {
-  subnet_id                 = azurerm_subnet.aks_subnet.id
-  network_security_group_id = azurerm_network_security_group.aks_nsg.id
-}
-
-output "vm_public_ip" {
-  description = "The public IP address of the Virtual Machine"
-  value       = azurerm_public_ip.vm_public_ip.ip_address
-}
-
-output "network_interface_id" {
-  description = "The ID of the network interface"
-  value       = azurerm_network_interface.nic.id
+resource "azurerm_subnet_network_security_group_association" "aks" {
+  subnet_id                 = azurerm_subnet.aks.id
+  network_security_group_id = azurerm_network_security_group.aks.id
 }
