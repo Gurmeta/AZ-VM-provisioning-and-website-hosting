@@ -1,37 +1,36 @@
 #!/bin/bash
+# First-boot provisioning for the Ubuntu 24.04 VM (executed as root by cloud-init).
+# Installs: Azure CLI, kubectl, git and Apache2 serving a static landing page.
+set -euo pipefail
 
-# Install Azure CLI
-curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+export DEBIAN_FRONTEND=noninteractive
+KUBECTL_MINOR="v1.31" # Kubernetes apt repo channel; bump deliberately.
 
-# Update packages and install dependencies
-sudo apt-get update
-sudo apt-get install -y apt-transport-https ca-certificates curl gpg
+apt-get update -y
+apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release git apache2
 
-# Download the official GPG key securely
-curl -fsSLo kubernetes-archive-keyring.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg
-gpg --no-default-keyring --keyring ./kubernetes-archive-keyring.gpg --fingerprint
+install -m 0755 -d /etc/apt/keyrings
 
-# Verify the fingerprint manually (check against Kubernetes official docs)
-# If it matches, move the keyring
-sudo mv kubernetes-archive-keyring.gpg /usr/share/keyrings/
+# --- Azure CLI (Microsoft apt repository, signed-by keyring) -----------------
+curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
+  | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg
+chmod 0644 /etc/apt/keyrings/microsoft.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" \
+  > /etc/apt/sources.list.d/azure-cli.list
 
-# Add the Kubernetes repo securely
-echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+# --- kubectl (official pkgs.k8s.io repository, signed-by keyring) ------------
+curl -fsSL "https://pkgs.k8s.io/core:/stable:/${KUBECTL_MINOR}/deb/Release.key" \
+  | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+chmod 0644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/${KUBECTL_MINOR}/deb/ /" \
+  > /etc/apt/sources.list.d/kubernetes.list
 
-# Update package lists and install kubectl
-curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl.sha256"
-sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+apt-get update -y
+apt-get install -y azure-cli kubectl
 
-#install Git for GitCLI usage in the pipelines
-sudo apt-get install -y git
-
-
-# Install Apache2
-sudo apt-get install -y apache2
-
-# Replace the default Apache2 webpage with a custom HTML page
-sudo bash -c 'cat <<EOF > /var/www/html/index.html
+# --- Landing page -------------------------------------------------------------
+# Quoted 'EOF' prevents the shell from expanding anything inside the page.
+cat > /var/www/html/index.html <<'EOF'
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -88,10 +87,10 @@ sudo bash -c 'cat <<EOF > /var/www/html/index.html
 </head>
 <body>
     <header>Georgi Stefanov - DevOps Engineer</header>
-    <div class="container">
+    <main class="container">
         <h1>Welcome to My DevOps Portfolio</h1>
         <p>I am a passionate DevOps Engineer specializing in cloud infrastructure, automation, and CI/CD pipelines.</p>
-        
+
         <h2>Skills</h2>
         <div class="skills">
             <div class="skill">Terraform</div>
@@ -99,16 +98,15 @@ sudo bash -c 'cat <<EOF > /var/www/html/index.html
             <div class="skill">Azure Cloud</div>
             <div class="skill">Docker</div>
             <div class="skill">CI/CD Pipelines</div>
-            <div class="skill">Monitoring & Logging</div>
+            <div class="skill">Monitoring &amp; Logging</div>
         </div>
-    </div>
+    </main>
     <footer>
         &copy; 2025 Georgi Stefanov | DevOps Enthusiast
     </footer>
 </body>
 </html>
+EOF
 
-EOF'
-
-# Restart Apache2 to apply changes
-sudo systemctl restart apache2
+systemctl enable apache2
+systemctl restart apache2

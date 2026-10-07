@@ -1,44 +1,69 @@
+// Replace with your GitHub username.
+const GITHUB_USERNAME = 'YOUR_GITHUB_USERNAME';
+
+// Build a card with textContent only: API data is never parsed as HTML (prevents XSS).
+function createProjectCard(project) {
+    const card = document.createElement('div');
+    card.className = 'project-card';
+
+    const title = document.createElement('h3');
+    title.textContent = project.name;
+
+    const description = document.createElement('p');
+    description.textContent = project.description || 'No description';
+
+    const language = document.createElement('p');
+    language.textContent = `Language: ${project.language || 'N/A'}`;
+
+    const link = document.createElement('a');
+    link.href = project.html_url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = 'View on GitHub';
+
+    card.append(title, description, language, link);
+    return card;
+}
+
 // Fetch GitHub Projects
 async function fetchProjects() {
+    const container = document.getElementById('projects-container');
+
     try {
-        const response = await fetch('https://api.github.com/users/YOUR_GITHUB_USERNAME/repos');
+        const response = await fetch(
+            `https://api.github.com/users/${encodeURIComponent(GITHUB_USERNAME)}/repos?sort=updated&per_page=12`,
+            { headers: { Accept: 'application/vnd.github+json' } }
+        );
+        if (!response.ok) {
+            throw new Error(`GitHub API responded with ${response.status}`);
+        }
+
         const projects = await response.json();
-        
-        const container = document.getElementById('projects-container');
-        
-        projects.forEach(project => {
-            const card = document.createElement('div');
-            card.className = 'project-card';
-            card.innerHTML = `
-                <h3>${project.name}</h3>
-                <p>${project.description || 'No description'}</p>
-                <p>Language: ${project.language || 'N/A'}</p>
-                <a href="${project.html_url}" target="_blank">View on GitHub</a>
-            `;
-            container.appendChild(card);
-        });
+        container.replaceChildren(...projects.map(createProjectCard));
     } catch (error) {
         console.error('Error fetching projects:', error);
+        const message = document.createElement('p');
+        message.textContent = 'Projects could not be loaded right now.';
+        container.replaceChildren(message);
     }
 }
 
-// Form Submission
+// Form submission (placeholder: connect to your backend or a form service)
 document.getElementById('contactForm').addEventListener('submit', (e) => {
     e.preventDefault();
-    // Add your form submission logic here
-    alert('Message sent successfully!');
+    document.getElementById('form-status').textContent =
+        'Thanks! This template form is not connected to a backend yet.';
     e.target.reset();
 });
 
-// Smooth Scroll
-document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', function (e) {
+// Smooth scroll
+document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
+    anchor.addEventListener('click', (e) => {
+        const target = document.querySelector(anchor.getAttribute('href'));
+        if (!target) return;
         e.preventDefault();
-        document.querySelector(this.getAttribute('href')).scrollIntoView({
-            behavior: 'smooth'
-        });
+        target.scrollIntoView({ behavior: 'smooth' });
     });
 });
 
-// Initial fetch
 fetchProjects();

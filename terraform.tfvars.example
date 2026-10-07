@@ -1,0 +1,27 @@
+# Copy to terraform.tfvars (git-ignored) and adjust. Contains no secrets.
+
+resource_group_name = "gbs-dev-rg"
+location            = "westeurope"
+name_prefix         = "gbs"
+environment         = "dev"
+
+# REQUIRED: your public IP in CIDR form (find it with: curl -s https://api.ipify.org).
+# 0.0.0.0/0 is rejected on purpose.
+allowed_ssh_cidrs = ["203.0.113.10/32"]
+
+admin_username      = "azureuser"
+ssh_public_key_path = "~/.ssh/id_rsa.pub"
+
+vm_size      = "Standard_B2s"
+node_vm_size = "Standard_D2s_v3"
+node_count   = 2
+
+# Set to false to skip the Application Gateway (saves cost, no ingress controller).
+enable_agic = true
+
+# Add extra ports only when needed, e.g. [80, 443, 3000] for Grafana.
+aks_allowed_inbound_ports = [80, 443]
+
+tags = {
+  owner = "your-name"
+}
