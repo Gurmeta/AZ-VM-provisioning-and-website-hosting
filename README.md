@@ -1,5 +1,9 @@
 # Azure VM + AKS Provisioning (Terraform)
 
+[![terraform-ci](https://github.com/Gurmeta/AZ-VM-provisioning-and-website-hosting/actions/workflows/terraform-ci.yml/badge.svg)](https://github.com/Gurmeta/AZ-VM-provisioning-and-website-hosting/actions/workflows/terraform-ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+![Terraform](https://img.shields.io/badge/Terraform-%E2%89%A51.5-844FBA?logo=terraform&logoColor=white)
+
 Terraform configuration that provisions, in a single resource group on Azure:
 
 - a **hardened Ubuntu 24.04 VM** (SSH-key only, NSG-restricted) that serves a static landing page with Apache2 and comes with Azure CLI, kubectl and git preinstalled;
